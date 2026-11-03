@@ -47,55 +47,91 @@ def words(text: str) -> list[str]:
 
 # ── The three measures — YOU BUILD THESE ─────────────────────────────────────
 
-def sentence_length_spread(text: str) -> float:
+#
+# Raw measures only. Normalizing them onto 0–1, choosing N, and the neutral value
+# for "not enough text" are decided after inspecting real raw values. Until
+# then a measure that has some text but too little to work with returns None,
+# meaning "no information". Text with no words at all is a separate case:
+# type_token_ratio and punctuation_density return 0.0 for it.
+#
+# Direction, for all three: a HIGHER raw value means MORE AI-LIKE. That is the
+# author's own hypothesis, and for the first two it is the opposite of the
+# usual one. It is provisional until tested on the calibration inputs.
+
+# The marks punctuation_density counts. Sentence-ending marks (. ? !), hyphens
+# inside words and apostrophes in contractions are deliberately NOT counted.
+PUNCTUATION_MARKS = frozenset(",;:—–()[]{}")
+
+
+def sentence_length_spread(text: str) -> float | None:
     """
-    How much sentence length varies. ← TODO
+    How much sentence length varies, as a coefficient of variation.
 
-    Returns:
-        A float. Decide yourself what scale it's on and which direction means
-        "more human" — then write that down, because your combining rule
-        depends on knowing it.
+    Sentence length is the number of `words()` in each sentence from
+    `sentences()`. The measure is the standard deviation of those lengths
+    (`statistics.stdev`, the sample version) divided by their mean, so a long
+    text and a short one are comparable. Higher means more varied lengths,
+    which this project reads as more AI-like.
 
-    A hint on what you're reaching for: the standard deviation of sentence
-    lengths, probably divided by the mean so a long text and a short one are
-    comparable. `statistics.stdev` is imported for you.
-
-    Watch the edge case: a one-sentence submission has no spread at all, and
-    `stdev` raises on fewer than two values. Decide what that should return
-    before the attack set decides for you.
+    Returns None when there is not enough to measure: fewer than two sentences
+    (stdev needs two values) or a mean of zero words per sentence.
     """
-    # TODO: replace this
-    return 0.0
+    lengths = [len(words(s)) for s in sentences(text)]
+    if len(lengths) < 2:
+        return None
+
+    mean = statistics.mean(lengths)
+    if mean == 0:
+        return None
+
+    return statistics.stdev(lengths) / mean
 
 
-def type_token_ratio(text: str) -> float:
+def type_token_ratio(text: str, n_words: int | None = None) -> float | None:
     """
-    Unique words over total words. ← TODO
+    Unique words over total words, between 0 and 1. Higher means more varied
+    vocabulary, which this project reads as more AI-like.
 
-    Returns:
-        A float between 0 and 1. Higher means more varied vocabulary.
+    This ratio falls as text gets longer, because common words repeat. So the
+    plan is to measure it on a fixed-size slice: the first `n_words` words.
 
-    Worth knowing before you rely on it: this measure falls as text gets
-    longer, because common words repeat. Two texts of different lengths aren't
-    directly comparable on it, and if your test inputs vary a lot in length,
-    that alone can look like a signal.
+        n_words=None   use every word (raw value, for inspection only)
+        n_words=N      use the first N words
+
+    Returns 0.0 when the text has no words at all. Returns None when there is
+    some text but not enough to measure: fewer than `n_words` words when a slice
+    length is given.
     """
-    # TODO: replace this
-    return 0.0
+    tokens = words(text)
+    if not tokens:
+        return 0.0
+
+    if n_words is not None:
+        if len(tokens) < n_words:
+            return None
+        tokens = tokens[:n_words]
+
+    return len(set(tokens)) / len(tokens)
 
 
 def punctuation_density(text: str) -> float:
     """
-    How much punctuation, relative to length. ← TODO
+    Selected punctuation marks per word. Higher means more punctuation, which
+    this project reads as more AI-like.
 
-    Returns:
-        A float. Whether you count all punctuation or only some kinds — commas,
-        semicolons, dashes — is a real choice. Semicolons and em dashes are
-        more interesting than full stops, because they vary more between
-        writers.
+    Counted: commas, semicolons, colons, em dashes, en dashes, square brackets,
+    curly braces and parentheses (see PUNCTUATION_MARKS). Not counted: full
+    stops, question marks, exclamation marks, hyphens inside words,
+    apostrophes.
+
+    The denominator is the number of `words()`. Text with no words returns 0.0.
     """
-    # TODO: replace this
-    return 0.0
+    word_count = len(words(text))
+    if word_count == 0:
+        return 0.0
+
+    marks = sum(1 for ch in text if ch in PUNCTUATION_MARKS)
+    return marks / word_count
 
 
 # ── Combining them ───────────────────────────────────────────────────────────
