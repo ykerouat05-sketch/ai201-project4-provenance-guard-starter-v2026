@@ -121,15 +121,23 @@
      two off the response, so leaving them out costs you next unit's
      diagnostics. -->
 
-```bash
-$ curl -X POST http://127.0.0.1:5000/submit \
-  -H "Content-Type: application/json" \
-  -d '{"text": "...", "creator_id": "..."}'
+```powershell
+PS> curl.exe -X POST http://127.0.0.1:5000/submit -H "Content-Type: application/json" -d '{\"text\": \"I went to the store on Saturday to buy some food. The store was busy and I waited in line for a long time. After that I went home and made dinner for my family. It was a good day and I was happy.\", \"creator_id\": \"me\"}'
 ```
 
 ```json
-
+{
+  "confidence": 0.0,
+  "content_id": "c6f4156d-96d4-45db-b32d-f102e3b842d5",
+  "guess": "placeholder",
+  "label": "PLACEHOLDER",
+  "model_score": 0.93
+}
 ```
+
+*Milestone 3 snapshot: only the first signal (`model_score`) is connected.
+`guess`, `confidence` and `label` are placeholders, and there is no
+`style_score` yet. Those arrive in Milestones 4 and 5.*
 
 **An appeal**
 
@@ -145,13 +153,42 @@ $ curl -X POST http://127.0.0.1:5000/appeal \
 
 **What the log shows afterwards**
 
-```bash
-$ curl "http://127.0.0.1:5000/log?limit=3"
+```powershell
+PS> curl.exe "http://127.0.0.1:5000/log?limit=3"
 ```
 
 ```json
-
+{
+  "count": 2,
+  "entries": [
+    {
+      "combined_score": null,
+      "content_id": "d0010a8e-e81c-4c29-8aa6-56db7cc7556f",
+      "creator_id": "me",
+      "guess": "placeholder",
+      "label": null,
+      "model_score": 0.93,
+      "status": "decided",
+      "style_score": null,
+      "timestamp": "2026-11-03T05:11:00+00:00"
+    },
+    {
+      "combined_score": null,
+      "content_id": "c6f4156d-96d4-45db-b32d-f102e3b842d5",
+      "creator_id": "me",
+      "guess": "placeholder",
+      "label": null,
+      "model_score": 0.93,
+      "status": "decided",
+      "style_score": null,
+      "timestamp": "2026-11-03T05:16:50+00:00"
+    }
+  ]
+}
 ```
+
+The second entry is the submission above (same `content_id`). The first is an
+earlier submission of the same text.
 
 ---
 

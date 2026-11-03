@@ -30,6 +30,7 @@ from flask import Flask, jsonify, request
 
 import audit
 import config
+import detector
 
 app = Flask(__name__)
 
@@ -200,16 +201,46 @@ def submit():
     a malformed input is one of the most common real failures there is.
     """
     payload = request.get_json(silent=True) or {}
+    text = payload.get("text")
+    creator_id = payload.get("creator_id")
 
-    # TODO: delete this and build the route.
+    # Milestone 3, pass 3: signal one only. Confidence and label are still
+    # placeholders until Milestones 4 and 5.
+    try:
+        model_score = detector.model_signal(text)
+    except detector.DetectorUnavailable:
+        return jsonify({
+            "error": "detector_unavailable",
+            "message": "The detector model couldn't be loaded. "
+                       "Run `python detector.py` once to download it.",
+        }), 503
+    except ValueError as exc:
+        # Raised when the text is too short to score.
+        return jsonify({
+            "error": "text_not_scoreable",
+            "message": str(exc),
+        }), 400
+
+    content_id = str(uuid.uuid4())
+    guess = "placeholder"
+
+    # Milestone 3, pass 4: every scored submission leaves a line in the log.
+    # style_score, combined_score and label stay null until Milestones 4 and 5.
+    audit.log_decision(
+        content_id=content_id,
+        creator_id=creator_id,
+        guess=guess,
+        model_score=model_score,
+        status="decided",
+    )
+
     return jsonify({
-        "error": "not_implemented",
-        "message": "POST /submit isn't built yet — see the TODO in app.py.",
-        "you_sent": {
-            "text_length": len(payload.get("text", "")),
-            "creator_id": payload.get("creator_id"),
-        },
-    }), 501
+        "content_id": content_id,
+        "guess": guess,
+        "model_score": model_score,
+        "confidence": 0.0,
+        "label": "PLACEHOLDER",
+    })
 
 
 @app.post("/appeal")
