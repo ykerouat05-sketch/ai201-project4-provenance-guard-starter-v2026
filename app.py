@@ -151,8 +151,25 @@ def health():
 
 # ── YOU BUILD THIS ────────────────────────────────────────────────────────────
 
+def _text_problem(text):
+    """What's wrong with `text`, as (error, message), or None if it's usable."""
+    if text is None:
+        return "missing_text", "The request has no `text` field."
+    if not isinstance(text, str):
+        return "invalid_text", "`text` must be a string."
+    if not text.strip():
+        return "empty_text", "`text` is empty."
+    return None
+
+
+def _reject(creator_id, error, message):
+    """Log a request that never became a decision, then answer 400."""
+    audit.log_rejection(creator_id=creator_id, reason=error)
+    return jsonify({"error": error, "message": message}), 400
+
+
 @app.post("/submit")
-# @limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
+@limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
 def submit():
     """
     Take a piece of text, decide about it, log the decision, answer.
@@ -200,9 +217,19 @@ def submit():
     what should this do when `text` is missing, empty, or enormous? A crash on
     a malformed input is one of the most common real failures there is.
     """
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    # A body that isn't a JSON object (a bare list, a string, no JSON at all)
+    # has no .get, so treat it as a request with no fields.
+    if not isinstance(payload, dict):
+        payload = {}
     text = payload.get("text")
     creator_id = payload.get("creator_id")
+    # Rejections are logged under a creator too; "unknown" when none was sent.
+    who = creator_id if isinstance(creator_id, str) and creator_id.strip() else "unknown"
+
+    problem = _text_problem(text)
+    if problem:
+        return _reject(who, *problem)
 
     # Milestone 3, pass 3: signal one only. Confidence and label are still
     # placeholders until Milestones 4 and 5.
@@ -216,10 +243,7 @@ def submit():
         }), 503
     except ValueError as exc:
         # Raised when the text is too short to score.
-        return jsonify({
-            "error": "text_not_scoreable",
-            "message": str(exc),
-        }), 400
+        return _reject(who, "text_not_scoreable", str(exc))
 
     content_id = str(uuid.uuid4())
     guess = "placeholder"

@@ -1,2 +1,21 @@
 {"timestamp": "2026-11-03T05:11:00+00:00", "content_id": "d0010a8e-e81c-4c29-8aa6-56db7cc7556f", "creator_id": "me", "guess": "placeholder", "model_score": 0.93, "style_score": null, "combined_score": null, "label": null, "status": "decided"}
 {"timestamp": "2026-11-03T05:16:50+00:00", "content_id": "c6f4156d-96d4-45db-b32d-f102e3b842d5", "creator_id": "me", "guess": "placeholder", "model_score": 0.93, "style_score": null, "combined_score": null, "label": null, "status": "decided"}
+{"timestamp": "2026-11-08T22:30:12+00:00", "content_id": "e8ebf0d8-0f70-4bec-8733-e3b0b1cfc51e", "creator_id": "m1_valid", "guess": "placeholder", "model_score": 0.93, "style_score": null, "combined_score": null, "label": null, "status": "decided"}
+{"timestamp": "2026-11-08T22:30:13+00:00", "content_id": "ba84885e-3d70-4bc4-9218-12a02730f14a", "creator_id": "m1_valid", "guess": "placeholder", "model_score": 0.8369, "style_score": null, "combined_score": null, "label": null, "status": "decided"}
+{"timestamp": "2026-11-08T22:30:13+00:00", "content_id": "ca0f0f84-5f5d-4e3b-923a-49ff5a7fdf7b", "creator_id": "m1_valid", "guess": "placeholder", "model_score": 0.4046, "style_score": null, "combined_score": null, "label": null, "status": "decided"}
+{"timestamp": "2026-11-08T22:30:13+00:00", "creator_id": "m1_missing", "event": "rejected", "status": "rejected", "reason": "missing_text"}
+{"timestamp": "2026-11-08T22:30:18+00:00", "content_id": "ba9dd9d0-0a17-4f08-9265-3a2c42598c70", "creator_id": "flood_tester", "guess": "placeholder", "model_score": 0.2587, "style_score": null, "combined_score": null, "label": null, "status": "decided"}
+{"timestamp": "2026-11-08T22:30:18+00:00", "content_id": "7828dca3-53a9-4f6a-9a5e-0ff656ddf3be", "creator_id": "flood_tester", "guess": "placeholder", "model_score": 0.2587, "style_score": null, "combined_score": null, "label": null, "status": "decided"}
+{"timestamp": "2026-11-08T22:30:18+00:00", "content_id": "6245c576-4491-4181-8198-cca036714e2e", "creator_id": "flood_tester", "guess": "placeholder", "model_score": 0.2587, "style_score": null, "combined_score": null, "label": null, "status": "decided"}
+{"timestamp": "2026-11-08T22:30:18+00:00", "content_id": "42065403-bbda-4c4c-bd4b-6de615c35284", "creator_id": "flood_tester", "guess": "placeholder", "model_score": 0.2587, "style_score": null, "combined_score": null, "label": null, "status": "decided"}
+{"timestamp": "2026-11-08T22:30:18+00:00", "content_id": "f6bea37d-d5ef-47a5-9ff6-4615181a9c3e", "creator_id": "flood_tester", "guess": "placeholder", "model_score": 0.2587, "style_score": null, "combined_score": null, "label": null, "status": "decided"}
+{"timestamp": "2026-11-08T22:30:18+00:00", "creator_id": "flood_tester", "event": "rejected", "status": "rejected", "reason": "rate_limited", "limit": "5 per 1 minute"}
+{"timestamp": "2026-11-08T22:30:18+00:00", "creator_id": "flood_tester", "event": "rejected", "status": "rejected", "reason": "rate_limited", "limit": "5 per 1 minute"}
+{"timestamp": "2026-11-08T22:30:18+00:00", "creator_id": "flood_tester", "event": "rejected", "status": "rejected", "reason": "rate_limited", "limit": "5 per 1 minute"}
+{"timestamp": "2026-11-08T22:30:18+00:00", "creator_id": "flood_tester", "event": "rejected", "status": "rejected", "reason": "rate_limited", "limit": "5 per 1 minute"}
+{"timestamp": "2026-11-08T22:30:18+00:00", "creator_id": "flood_tester", "event": "rejected", "status": "rejected", "reason": "rate_limited", "limit": "5 per 1 minute"}
+{"timestamp": "2026-11-08T22:30:18+00:00", "creator_id": "flood_tester", "event": "rejected", "status": "rejected", "reason": "rate_limited", "limit": "5 per 1 minute"}
+{"timestamp": "2026-11-08T22:30:18+00:00", "creator_id": "flood_tester", "event": "rejected", "status": "rejected", "reason": "rate_limited", "limit": "5 per 1 minute"}
+{"timestamp": "2026-11-08T22:30:18+00:00", "creator_id": "flood_tester", "event": "rejected", "status": "rejected", "reason": "rate_limited", "limit": "5 per 1 minute"}
+{"timestamp": "2026-11-08T22:30:18+00:00", "creator_id": "flood_tester", "event": "rejected", "status": "rejected", "reason": "rate_limited", "limit": "5 per 1 minute"}
+{"timestamp": "2026-11-08T22:30:18+00:00", "creator_id": "flood_tester", "event": "rejected", "status": "rejected", "reason": "rate_limited", "limit": "5 per 1 minute"}

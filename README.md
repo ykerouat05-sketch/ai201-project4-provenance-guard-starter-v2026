@@ -212,25 +212,76 @@ earlier submission of the same text.
 
 ## Rate Limiting
 
-**My limits:** ___ per minute, ___ per day
+Provenance Guard uses rate limiting on the `/submit` endpoint to prevent
+automated scripts and abusive users from overwhelming the service or repeatedly
+testing its detection thresholds.
+
+**My limits:** 5 per minute, 50 per day
+
+- **5 requests per minute**
+- **50 requests per day**
 
 **Why those numbers and not others:**
-<!-- Think about two people: a real writer submitting their own work a few
-     times an hour, and a script sending a thousand variations to map your
-     thresholds. Your numbers have to be liveable for the first and hostile to
-     the second. -->
 
-**What a caller counts as:** <!-- per address, or per creator_id? They fail
-differently — one script can look like a thousand callers, and one household
-can look like one. -->
+These limits balance legitimate use with protection against automated
+submissions. A normal user should have enough requests to submit their work. A
+script that sends many variations under one `creator_id` is held to 5 a minute
+and 50 a day. A script that changes its `creator_id` on every request is not
+slowed by this mechanism (see "What a caller counts as").
+
+**What a caller counts as:**
+
+Requests are tracked using the `creator_id` (`app.py::rate_limit_key`). The
+caller's address is used as the fallback when `creator_id` is missing, blank or
+not a string, or when the request body isn't a JSON object.
+
+- Every request to `/submit` counts, **including ones rejected with a 400**. In a
+  test, five requests with no `text` from one `creator_id` were answered `400`
+  five times, and the sixth got `429`.
+- Because the key is the `creator_id`, one caller who invents a new `creator_id`
+  each time gets a fresh allowance each time. One household sharing a single
+  `creator_id` would share one allowance.
+- The counters are kept in memory (`RATE_LIMIT_STORAGE = "memory://"`), so a
+  restart of the service clears them.
+
+**When a limit is exceeded:**
+
+The service returns HTTP `429 Too Many Requests` with this JSON body, where
+`limit` names the limit that was hit (`5 per 1 minute` or `50 per 1 day`):
+
+```json
+{"error": "rate_limited", "limit": "50 per 1 day", "message": "Too many submissions. Try again shortly."}
+```
+
+Every rate-limit rejection is written to the audit log, by `audit.log_rejection`
+in the 429 handler, as an entry like this:
+
+```json
+{"timestamp": "2026-11-08T22:30:18+00:00", "creator_id": "flood_tester", "event": "rejected", "status": "rejected", "reason": "rate_limited", "limit": "5 per 1 minute"}
+```
+
+Rate limiting is enabled by `RATE_LIMITING_ENABLED = True` in `config.py`, with
+`RATE_LIMIT_PER_MINUTE = 5` and `RATE_LIMIT_PER_DAY = 50`. The decorator on
+`/submit` reads those values when the service starts.
 
 **The run of status codes when I pushed past it:**
 
-<!-- python run_attacks.py --flood 15 -->
+`python run_attacks.py --flood 15`, 15 submissions as one `creator_id`
+(`flood_tester`). The report is `results/flood_2026-11-08_1730.md`.
 
 ```
-
+200 200 200 200 200 429 429 429 429 429 429 429 429 429 429
 ```
+
+**The daily limit, tested separately:**
+
+The per-minute limit stops a normal run before the daily one can be reached, so
+the daily limit was tested in an isolated script. It raised the per-minute limit
+to 100 **in memory only**, kept the daily limit at 50, and wrote to a temporary
+log, so `config.py` and the real audit log were not touched. It sent 51 requests
+with one `creator_id`: the first 50 returned `200` and the 51st returned `429`
+with `"limit": "50 per 1 day"`. That rejection was logged, and a different
+`creator_id` sent right afterwards was still accepted with `200`.
 
 ---
 
