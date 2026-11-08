@@ -287,17 +287,102 @@ with `"limit": "50 per 1 day"`. That rejection was logged, and a different
 
 ## Attack Run — Before
 
-<!-- Every attack with its outcome and a held-or-broke mark.
-     `run_attacks.py --label before` produces the table. -->
+`python run_attacks.py --set attack_set --label before` against commit `de5eeb5`.
+The full table is `results/attack_run_2026-11-08_1753_before.md`.
+
+**What was running.** A real `model_score`, but `guess`, `label` and `confidence`
+are still placeholders, and `style_score` and `combined_score` are `null`
+(Milestones 4 and 5 aren't built). This is a baseline of an unfinished
+classifier, not of the finished system.
+
+| Family | Attacks | HTTP statuses |
+|---|---|---|
+| `evasion` | 10 | 200 × 10 |
+| `false_positive` | 8 | 200 × 8 |
+| `prompt_injection` | 6 | 200 × 6 |
+| `malformed` | 20 | 400 × 10, 200 × 8, 429 × 2 |
+| `flood_same_creator` | 12 | 200 × 5, 429 × 7 |
+| **All** | **56** | **200 × 37, 400 × 10, 429 × 9** |
+
+No row was skipped (32 + 24 records in the two files, 56 attacks run), and the
+runner marked none as BROKE: there was no 5xx, crash or dropped connection. The
+**Verdict** column is left blank on purpose, because no label thresholds exist
+yet to judge against.
+
+**What the run does show**
+
+- *Server stability.* All 56 requests got an answer, including a 60,000-character
+  text, control characters, deeply nested JSON and bodies that weren't JSON.
+- *Input validation.* Ten malformed requests got `400` and each left a `rejected`
+  entry (`empty_text`, `text_not_scoreable`, `missing_text`, `invalid_text`).
+  Eight were accepted with `200`: odd text (control characters, punctuation only,
+  one very long word, emoji only, right-to-left script, 60,000 characters), a
+  request with no `creator_id`, and one whose `creator_id` is an object. So there
+  is no length cap yet, and `creator_id` is not checked: the missing one was
+  logged as `null` and the object was logged as an object.
+- *Rate limiting.* The flood family got five `200`s and then seven `429`s, logged
+  as `5 per 1 minute`. Two malformed requests (`RQ10`, `RQ11`) also got `429`.
+  Both have no `creator_id`. The likely explanation is that they share the
+  caller-address bucket with the other requests that had none (`RQ02`, `RQ06`,
+  `RQ07`, `RQ08`, `RQ09`), so the requests after the fifth in that minute were
+  limited. This is consistent with the code (a missing or non-string
+  `creator_id` falls back to the caller's address) and with the log order, but
+  the log does not record which bucket counted a request, so it was not directly
+  observed. **Either way, this run doesn't show how the service handles those
+  two inputs**, because the limiter answered first.
+- *The log is complete.* Every one of the 56 attacks left exactly one audit
+  entry: 37 decisions, 10 validation rejections and 9 rate-limit rejections. The
+  submitted text itself is not stored in the audit log: no entry has a text
+  field. Other fields the caller controls are logged as sent, for example a
+  `creator_id` that was an object (the `RQ06` entry below).
+
+**What the run does not show.** Every row says `placeholder` and `0.000`. That
+`0.000` is the Score column, which the runner fills from `confidence` (a
+placeholder), so it describes no attack. A `200` only means the text was scored,
+not that an attack was detected or defeated. The only real signal is
+`model_score`, in each attack's detail:
+
+- Seven of the eight `false_positive` inputs have a `model_score` of 0.6175 or
+  higher (up to 0.8816), and one has 0.3223. That isn't a label: the thresholds
+  apply to a combined score that doesn't exist yet, so whether any of these
+  writers would be accused is unknown.
+- Junk inputs score at both extremes (control characters 0.0, punctuation only
+  0.0112, one very long word 0.9976, emoji only 0.9969, 60,000 characters 0.9876),
+  which says nothing about authorship.
+- All six `prompt_injection` inputs were scored without error. The service uses
+  the text only to score it, so that is the extent of what this run shows.
 
 
 
 **Ten audit log entries from the run**
 
-<!-- Choose entries that show the interesting failures, not the ten easiest. -->
+Copied from `results/audit_extract.json` (a `GET /log` snapshot of 77 entries;
+entries 22 to 77 are this run), in log order:
+
+| # | Attack | What it shows |
+|---|---|---|
+| 1 | `FP06` | A `false_positive` input: a high `model_score` with a placeholder `guess` |
+| 2 | `MF01` | Whitespace-only text rejected as `empty_text` |
+| 3 | `MF02` | A single character rejected by the detector as `text_not_scoreable` |
+| 4 | `MF08` | A 60,000-character text accepted, so there is no length cap yet |
+| 5 | `RQ03` | `text` that is a number, rejected as `invalid_text` |
+| 6 | `RQ06` | An object as `creator_id`, accepted and logged as an object |
+| 7 | `RQ07`–`RQ09` | A body that isn't a JSON object, rejected as `missing_text` under `unknown` (the three are indistinguishable in the log) |
+| 8 | `RQ10` or `RQ11` | Rate-limited under `unknown`; entries 63 and 64 are identical in the log, so the two can't be told apart. The limiter answered before the input was handled |
+| 9 | `FL01_05` | The last flood request allowed before the limit |
+| 10 | `FL01_06` | The first flood request rejected with `429` |
 
 ```json
-
+{"combined_score": null, "content_id": "41f17824-3f25-4f27-963b-d30fef10dd4e", "creator_id": "attacker_FP06", "guess": "placeholder", "label": null, "model_score": 0.8814, "status": "decided", "style_score": null, "timestamp": "2026-11-08T22:53:09+00:00"}
+{"creator_id": "attacker_MF01", "event": "rejected", "reason": "empty_text", "status": "rejected", "timestamp": "2026-11-08T22:53:10+00:00"}
+{"creator_id": "attacker_MF02", "event": "rejected", "reason": "text_not_scoreable", "status": "rejected", "timestamp": "2026-11-08T22:53:10+00:00"}
+{"combined_score": null, "content_id": "98fe6275-929c-4a61-b8f8-a2291186c0b4", "creator_id": "attacker_MF08", "guess": "placeholder", "label": null, "model_score": 0.9876, "status": "decided", "style_score": null, "timestamp": "2026-11-08T22:53:12+00:00"}
+{"creator_id": "attacker_RQ03", "event": "rejected", "reason": "invalid_text", "status": "rejected", "timestamp": "2026-11-08T22:53:12+00:00"}
+{"combined_score": null, "content_id": "02be91d0-f646-4590-a2f4-f149ed26ec51", "creator_id": {"id": "x"}, "guess": "placeholder", "label": null, "model_score": 0.0492, "status": "decided", "style_score": null, "timestamp": "2026-11-08T22:53:12+00:00"}
+{"creator_id": "unknown", "event": "rejected", "reason": "missing_text", "status": "rejected", "timestamp": "2026-11-08T22:53:12+00:00"}
+{"creator_id": "unknown", "event": "rejected", "limit": "5 per 1 minute", "reason": "rate_limited", "status": "rejected", "timestamp": "2026-11-08T22:53:12+00:00"}
+{"combined_score": null, "content_id": "94ba6b64-a00b-4850-bb64-acf17535eeef", "creator_id": "attacker_flood", "guess": "placeholder", "label": null, "model_score": 0.0287, "status": "decided", "style_score": null, "timestamp": "2026-11-08T22:53:13+00:00"}
+{"creator_id": "attacker_flood", "event": "rejected", "limit": "5 per 1 minute", "reason": "rate_limited", "status": "rejected", "timestamp": "2026-11-08T22:53:13+00:00"}
 ```
 
 **The single worst outcome** — the one I'd least want to explain to a writer
