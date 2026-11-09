@@ -162,10 +162,10 @@ def _text_problem(text):
     return None
 
 
-def _reject(creator_id, error, message):
-    """Log a request that never became a decision, then answer 400."""
+def _reject(creator_id, error, message, status=400):
+    """Log a request that never became a decision, then answer with `status`."""
     audit.log_rejection(creator_id=creator_id, reason=error)
-    return jsonify({"error": error, "message": message}), 400
+    return jsonify({"error": error, "message": message}), status
 
 
 @app.post("/submit")
@@ -224,12 +224,23 @@ def submit():
         payload = {}
     text = payload.get("text")
     creator_id = payload.get("creator_id")
-    # Rejections are logged under a creator too; "unknown" when none was sent.
-    who = creator_id if isinstance(creator_id, str) and creator_id.strip() else "unknown"
+
+    # The caller has to name themselves with a real string. Nothing is
+    # converted: a number or an object is refused, not turned into text.
+    # With no usable creator, the rejection is logged under "unknown".
+    if not isinstance(creator_id, str) or not creator_id.strip():
+        return _reject("unknown", "invalid_creator_id",
+                       "`creator_id` must be a non-empty string.")
+
+    # From here on the creator is usable, so rejections are logged under it.
+    if isinstance(text, str) and len(text) > config.MAX_TEXT_CHARS:
+        return _reject(creator_id, "text_too_long",
+                       f"`text` is longer than {config.MAX_TEXT_CHARS} characters.",
+                       413)
 
     problem = _text_problem(text)
     if problem:
-        return _reject(who, *problem)
+        return _reject(creator_id, *problem)
 
     # Milestone 3, pass 3: signal one only. Confidence and label are still
     # placeholders until Milestones 4 and 5.
@@ -243,7 +254,7 @@ def submit():
         }), 503
     except ValueError as exc:
         # Raised when the text is too short to score.
-        return _reject(who, "text_not_scoreable", str(exc))
+        return _reject(creator_id, "text_not_scoreable", str(exc))
 
     content_id = str(uuid.uuid4())
     guess = "placeholder"
@@ -267,6 +278,16 @@ def submit():
     })
 
 
+def _decision_for(content_id):
+    """The original decision entry for a content_id, or None if there isn't one."""
+    for entry in audit.entries_for(content_id):
+        # Decisions carry no `event` key. Appeals do, so an appeal on its own
+        # never counts as the decision it is appealing.
+        if "event" not in entry:
+            return entry
+    return None
+
+
 @app.post("/appeal")
 def appeal():
     """
@@ -287,14 +308,41 @@ def appeal():
     to the person on the other end. It's the only thing standing between a
     wrong accusation and nothing at all.
     """
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return _reject("unknown", "invalid_appeal",
+                       "The request body must be a JSON object with `content_id` "
+                       "and `reasoning`.")
+    content_id = payload.get("content_id")
+    reasoning = payload.get("reasoning")
 
-    # TODO: delete this and build the route.
+    if not isinstance(content_id, str) or not content_id.strip():
+        return _reject("unknown", "missing_content_id",
+                       "`content_id` must be a non-empty string.")
+
+    # Whose decision this is, when it can be told. Anything else is "unknown".
+    decision = _decision_for(content_id)
+    creator_id = decision.get("creator_id") if decision else None
+    if not isinstance(creator_id, str) or not creator_id.strip():
+        creator_id = "unknown"
+
+    if not isinstance(reasoning, str) or not reasoning.strip():
+        return _reject(creator_id, "invalid_reasoning",
+                       "`reasoning` must be a non-empty string.")
+
+    if decision is None:
+        return _reject("unknown", "unknown_content_id",
+                       "No submission with that `content_id` was found.", 404)
+
+    # Append-only: the original decision stays exactly as it was, and each
+    # appeal, repeats included, adds one entry after it.
+    audit.log_appeal(content_id, creator_id, reasoning)
+
     return jsonify({
-        "error": "not_implemented",
-        "message": "POST /appeal isn't built yet — see the TODO in app.py.",
-        "you_sent": payload,
-    }), 501
+        "status": "under_review",
+        "message": "Your appeal has been received and is under review.",
+        "content_id": content_id,
+    })
 
 
 # ── Already works ─────────────────────────────────────────────────────────────

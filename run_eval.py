@@ -58,12 +58,23 @@ def bodies_for(scenario):
     ]
 
 
-def describe(body):
-    """A short, readable note of what was sent — for the report."""
-    if set(body) == {"text", "creator_id"} and isinstance(body.get("text"), str):
-        text = body["text"]
-        return text[:70] if text else "(empty text)"
-    return json.dumps(body)[:120]
+def sample_id(scenario, body, index):
+    """
+    Which sample a record belongs to — an id, never the writing itself.
+
+    These reports get committed, and the samples are the writing being judged,
+    so a text excerpt in here would publish the thing under test. A scenario
+    can name its ids; failing that the body's creator_id identifies it, and
+    failing that its position in the scenario.
+    """
+    ids = scenario.get("ids")
+    if isinstance(ids, (list, tuple)) and len(ids) >= index:
+        return str(ids[index - 1])
+    if isinstance(body, dict):
+        creator = body.get("creator_id")
+        if isinstance(creator, str) and creator.strip():
+            return creator
+    return f"{scenario['name'][:12]}_{index}"
 
 
 def main():
@@ -114,23 +125,26 @@ def main():
         for trial in range(1, args.trials + 1):
             results = []
             for i, body in enumerate(bodies_for(scenario), 1):
-                preview = describe(body)
+                sample = sample_id(scenario, body, i)
                 try:
                     response = requests.post(f"{args.url}/submit", json=body,
                                              timeout=args.timeout)
                     payload = response.json() if response.content else {}
                     results.append({
                         "status": response.status_code,
+                        # The id the audit log knows this submission by, so a
+                        # record here can be matched to its entry later.
+                        "content_id": payload.get("content_id"),
                         "guess": payload.get("guess"),
                         "confidence": payload.get("confidence"),
                         "model_score": payload.get("model_score"),
                         "style_score": payload.get("style_score"),
                         "label": payload.get("label"),
-                        "sent": preview,
+                        "sample": sample,
                     })
                 except Exception as exc:  # noqa: BLE001
                     results.append({"status": None, "error": f"{type(exc).__name__}: {exc}",
-                                    "sent": preview})
+                                    "sample": sample})
 
             trials.append(results)
             guesses = [r.get("guess") or "—" for r in results]
