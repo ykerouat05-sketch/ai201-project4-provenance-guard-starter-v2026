@@ -206,6 +206,44 @@ earlier submission of the same text.
 - *What came back:*
 - *What I changed:*
 
+### Unit 8
+
+Claude Code (Anthropic) did most of the unit 8 implementation work, always on
+my explicit direction, task by task, with a review before each next step:
+
+- **Code implementation.** The `/submit` input validation (missing, empty,
+  `null`, non-string `text`; the 5,000-character limit; `creator_id` checks),
+  `POST /appeal`, the `run_eval.py` recording change, and the new
+  `check_criteria.py` and `verify_dataset.py` tools were written to
+  specifications I gave, and I reviewed each diff before approving the next
+  task.
+- **Test creation and debugging.** Every change was tested on an isolated,
+  temporary audit log before it touched the real one. In one case
+  (`test_stylometry.py`), Claude Code hand-computed an expected value
+  incorrectly on its first pass, caught the mismatch by actually running the
+  code, and corrected the test before reporting results — I did not catch that
+  error myself, Claude Code did, and said so.
+- **Reviewing evidence and identifying limitations.** Its reviews distinguished
+  NOT EVALUABLE from MISSED for criteria 1–3, flagged that the criterion-5
+  evidence doesn't persist `detector_loaded` for row 9 to a file (only
+  observed live during collection), and flagged that `/ping`/`/health` were
+  checked once per batch rather than after every individual request —
+  limitations I asked it to document rather than quietly close.
+- **Documentation and organization.** `MILESTONE1.md`, `REFERENCE_SET_PLAN.md`,
+  the Milestone 4 sections of this README, and this write-up were drafted from
+  evidence it had just gathered, or from decisions I had already made. It did
+  not choose the targets in `criteria.md`, the normalization approach, the
+  consent-and-privacy design, the dataset decisions, or any of the open items
+  in *What's Still Broken* — those are mine.
+
+**What AI did not touch.** No AI tool drafted, rewrote, or polished any
+test-set writing sample. `H01`–`H10` are not written yet; when they are, I
+will write them myself, by hand, with no AI involvement at any stage — that is
+the whole point of what they measure.
+
+*ChatGPT:* [fill in before submitting — what I used it for, if anything. Claude
+Code has no record of this and has not guessed at it.]
+
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
 ---
@@ -537,15 +575,89 @@ criterion-5 evidence above, not from a re-run of the attack set itself.
 
 ## What's Still Broken
 
-<!-- For each attack still getting through and each criterion still missed:
-     what you'd do, and why you stopped. -->
+Criteria 4 (appeal path) and 5 (bad input) are **MET** — see **Run Log and
+Verdicts** for that evidence. What follows is criteria 1–3, which remain
+**NOT EVALUABLE** (not missed — there is no label or score yet to judge against
+a target), and what the attack-set evidence does and does not show about the
+current code.
 
+### Criteria 1–3 — false positives, score spread, label coverage
 
+**What's unfinished.** `/submit` returns the placeholder string `"placeholder"`
+for `guess` and `null` for `style_score`, `combined_score` and `label`, for
+every request. `stylometry.style_signal()` is still `return 0.5` for every
+input. `scoring.combine_signals()` and `scoring.score_to_label()` are
+implemented but never called from `/submit`. `HUMAN_THRESHOLD`/`AI_THRESHOLD`
+(0.35/0.65) and the three label texts are still the starter's placeholder
+values. None of the 20 `test_set/` samples exist — the T5.2 readiness
+assessment found 0 of 20 written, with no `.txt` file anywhere in the
+repository, only the empty `manifest.csv` structure.
+
+**What would be required to fix it.**
+1. A reference set of real writing from at least 10 volunteers (the approved
+   plan in `REFERENCE_SET_PLAN.md`), to choose real normalization bounds and a
+   neutral value for the three raw stylometry measures — not guessed, and not
+   taken from the 4-text `calibration/` set, which its own manifest calls
+   "exploratory" and says does not show the measures' direction holds.
+2. `style_signal()` wired to those bounds, `combine_signals()` and
+   `score_to_label()` called from `/submit`, and real thresholds and label
+   text chosen and written.
+3. The 20 `test_set/` samples written — 10 of them, H01–H10, by me, by hand,
+   with no AI involvement at any stage — and hashed with
+   `verify_dataset.py --write-hashes`, then verified.
+4. Three trials via `run_eval.py`, scored by `check_criteria.py`.
+
+**Why it wasn't completed.** The instructor/university approval gate for
+recruiting volunteers (`REFERENCE_SET_PLAN.md`) was never resolved, so no
+volunteer was contacted and the reference set was never collected. The 20
+test-set samples are also unwritten: the AI drafts' source (A01–A05) was never
+finalized, and writing 10 original samples by hand is work only I can do,
+which hadn't happened by this submission.
+
+**Technical, data-related, or time-related?** **Data-related**, mainly — there
+is no reference data and no test-set data, and nothing else can substitute for
+either. There is a **time-related** component too: recruiting volunteers and
+writing ten 80–300-word samples by hand both take real calendar time this
+project didn't have left. It is **not** a technical limitation — the raw
+measures (T5.1) are implemented, deterministic, and covered by 72 passing unit
+tests; there is nothing technically hard left in `style_signal` once the
+bounds exist.
+
+### Attacks — what the evidence actually shows
+
+The baseline run (`results/attack_run_2026-11-08_1753_before.md`, 56 attacks
+against commit `de5eeb5`) is the only full attack-set run that exists, and it
+predates most of this project's code. Zero attacks were auto-marked BROKE —
+no crash, no 5xx. Three were confirmed defects, all at the route stage, all
+the same mechanism — an attacker-controlled field reaching the log unchecked:
+`MF08` (60,000 characters accepted), `RQ02` (missing `creator_id` accepted and
+logged as `null`), `RQ06` (an object as `creator_id` accepted and logged as an
+object). The equivalent inputs are now rejected: criterion 5's isolated
+evidence shows text over 5,000 characters returning 413, and a missing or
+non-string `creator_id` returning 400. But **no fresh attack-set run has been
+made against the current code**, so this is a spot check on the specific
+mechanism, not a re-verified attack outcome.
+
+The other 24 attacks in that run — `evasion` (10), `false_positive` (8),
+`prompt_injection` (6) — all returned `200`, meaning the text was accepted and
+scored by signal one, nothing more. **Whether any of them would fool or trip
+the finished classifier is unmeasured, not zero.** A `200` here was never
+evidence of detection or evasion, because no label existed to detect or evade
+with — that gap closes together with criteria 1–3, not separately.
+
+Rate limiting (the `flood_same_creator` family, 12 attacks) is confirmed
+working as intended — five `200`s and then seven `429`s, matching the
+configured 5-per-minute limit — and is not part of what's broken here.
 
 **The trade I'd make if this ran for real:**
 
-<!-- Two sentences. Fewer wrong accusations means more AI text getting through.
-     Say which way you'd go and WHO PAYS FOR IT. -->
+If I had to deploy this, I would weight it toward fewer false accusations,
+because a wrongly accused writer loses something personal — credibility, a
+grade, a reputation — while a missed piece of AI writing costs the platform
+only a little enforcement power. The people who pay for that choice are
+whoever actually relies on this system to catch AI text — instructors,
+editors, readers — who would see more undetected AI-generated submissions get
+through than they would under a stricter setting.
 
 
 
