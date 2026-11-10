@@ -1,0 +1,124 @@
+{
+  "rows": [
+    {
+      "row": 1,
+      "label": "text field missing",
+      "ok": true,
+      "detail": "HTTP 400 (wanted 400), +1 rejected, error='missing_text'",
+      "skipped": false
+    },
+    {
+      "row": 2,
+      "label": "text empty or whitespace-only",
+      "ok": true,
+      "detail": "HTTP 400 (wanted 400), +1 rejected, error='empty_text'",
+      "skipped": false
+    },
+    {
+      "row": 3,
+      "label": "text is null",
+      "ok": true,
+      "detail": "HTTP 400 (wanted 400), +1 rejected, error='missing_text'",
+      "skipped": false
+    },
+    {
+      "row": 4,
+      "label": "text is a number",
+      "ok": true,
+      "detail": "HTTP 400 (wanted 400), +1 rejected, error='invalid_text'",
+      "skipped": false
+    },
+    {
+      "row": 4,
+      "label": "text is a list",
+      "ok": true,
+      "detail": "HTTP 400 (wanted 400), +1 rejected, error='invalid_text'",
+      "skipped": false
+    },
+    {
+      "row": 5,
+      "label": "text longer than 5000 characters",
+      "ok": true,
+      "detail": "HTTP 413 (wanted 413), +1 rejected, error='text_too_long'",
+      "skipped": false
+    },
+    {
+      "row": 5,
+      "label": "text of exactly 5000 characters is allowed",
+      "ok": true,
+      "detail": "HTTP 200, +0 rejected",
+      "skipped": false
+    },
+    {
+      "row": 6,
+      "label": "text the detector refuses to score",
+      "ok": true,
+      "detail": "HTTP 400 (wanted 400), +1 rejected, error='text_not_scoreable'",
+      "skipped": false
+    },
+    {
+      "row": 7,
+      "label": "body is JSON but not an object",
+      "ok": true,
+      "detail": "HTTP 400 (wanted 400), +1 rejected, error='invalid_creator_id'",
+      "skipped": false
+    },
+    {
+      "row": 7,
+      "label": "body is not JSON",
+      "ok": true,
+      "detail": "HTTP 400 (wanted 400), +1 rejected, error='invalid_creator_id'",
+      "skipped": false
+    },
+    {
+      "row": 8,
+      "label": "creator_id missing",
+      "ok": true,
+      "detail": "HTTP 400 (wanted 400), +1 rejected, error='invalid_creator_id'",
+      "skipped": false
+    },
+    {
+      "row": 8,
+      "label": "creator_id blank",
+      "ok": true,
+      "detail": "HTTP 400 (wanted 400), +1 rejected, error='invalid_creator_id'",
+      "skipped": false
+    },
+    {
+      "row": 8,
+      "label": "creator_id not a string",
+      "ok": true,
+      "detail": "HTTP 400 (wanted 400), +1 rejected, error='invalid_creator_id'",
+      "skipped": false
+    },
+    {
+      "row": 9,
+      "label": "detector model cannot load",
+      "ok": false,
+      "detail": "needs a service started with a model name that does not exist; re-run that service with --expect-503",
+      "skipped": true
+    },
+    {
+      "row": "-",
+      "label": "/ping still answers after the bad input",
+      "ok": true,
+      "detail": "HTTP 200",
+      "skipped": false
+    },
+    {
+      "row": "-",
+      "label": "/health still answers after the bad input",
+      "ok": true,
+      "detail": "HTTP 200",
+      "skipped": false
+    },
+    {
+      "row": "-",
+      "label": "no unhandled 5xx on rows 1-8",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    }
+  ],
+  "when": "2026-11-09T22:35:10"
+}

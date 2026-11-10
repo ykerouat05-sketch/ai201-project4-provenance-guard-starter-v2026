@@ -396,36 +396,119 @@ whose work got caught by it:
 
 <!-- Your five criteria across three trials. `run_eval.py --label before`. -->
 
+Criteria 1–3 need `test_set/` (20 fixed samples with `expected_guess`) run three
+times through `run_eval.py` and scored by `check_criteria.py`. No sample files
+exist yet — `test_set/` holds only `manifest.csv` and `README.md` — so **no
+trial has run**. Criteria 4 and 5 are not trial-based; they are checked directly
+against a running service by `check_criteria.py --appeals` and
+`check_criteria.py --bad-input`, and that evidence does exist.
+
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |
+| 1. False positives | at most 3 of 10 H samples get `guess = "ai"`, each of 3 trials | no trial run | no trial run | no trial run | **NOT EVALUABLE** |
+| 2. Score spread | mean(A) − mean(H) combined score ≥ 0.30, and ≥2 of 5 A samples above mean(H), each of 3 trials | no trial run | no trial run | no trial run | **NOT EVALUABLE** |
+| 3. Label coverage | ≥5 samples per label whose `expected_guess` matches their `guess`, each of 3 trials | no trial run | no trial run | no trial run | **NOT EVALUABLE** |
+| 4. Appeal path | 3 of 3 valid appeals 200 + one `under_review` entry; repeat recorded; 404/400 rejections, one `rejected` entry each | — not trial-based, see evidence below — | | | **MET** |
+| 5. Bad input | nine rows with required status, no unhandled 5xx except row 9, one `rejected` entry per row 1–8, `/ping`/`/health` answer | — not trial-based, see evidence below — | | | **MET**, with 2 documented limitations |
 
-**Real output from one trial**, pasted as text, naming the file and function
-that produced it:
+**Not MISSED — NOT EVALUABLE.** Criteria 1–3 are not reported as failed targets.
+There is no label, no `style_score`, and no `combined_score` to measure them
+against yet (see Diagnoses, below), so nothing has been judged against those
+targets either way.
+
+### Evidence for criteria 4 and 5
+
+Collected against an **isolated** test service: `app.py` run with its audit log
+pointed at a temporary file, on a non-default port, so the project's own
+`logs/audit.jsonl` was never written to by these checks.
+
+**Criterion 4 — `results/appeals_2026-11-09_2234_m4.json`.** All 10 checks held:
+3 valid appeals (each 200, exactly one new `under_review` entry, the original
+decision entry confirmed unchanged beforehand), a repeat appeal on the same
+`content_id` (200, one more entry), and the four rejections — unknown
+`content_id` (404), missing `content_id` (400), empty/whitespace/non-string
+`reasoning` (400), and a non-object body (400) — each adding one `rejected`
+entry and zero `appeal` entries.
+
+**Criterion 5 — two files, because row 9 needs a different service.**
+`AI201_DETECTOR_MODEL` is read once at startup, so a service can either load a
+real model (for rows 1–8) or fail to load one (for row 9), never both at once:
+
+- `results/bad_input_2026-11-09_2235_m4.json` — rows 1–8, against a normal
+  service. Every row returned its required status (400 for rows 1–4 and 6–8,
+  413 for text over 5,000 characters, 200 for exactly 5,000), each rejection
+  added exactly one `rejected` entry, no row returned a 5xx, and `/ping` and
+  `/health` still answered 200 afterwards.
+- `results/bad_input_2026-11-09_2235_m4_row9_brokenmodel.json` — row 9, against
+  a service started with a model name that doesn't exist. It returned 503, and
+  `/health` reported `detector_loaded: false`.
+- `results/criteria_2026-11-09_2235_m4.md` is the generated report. Read on its
+  own, it shows criterion 5 as NOT EVALUATED, because `check_criteria.py` takes
+  one `--bad-input-evidence` file per run and the file it was given doesn't
+  cover row 9 (that requires the second file, above). That is the tool
+  describing its own single-file input honestly, not evidence that row 9 is
+  untested — the second file supplies it.
+
+**Two limitations in this evidence, stated plainly:**
+
+1. `/ping` and `/health` were checked **once, after the whole batch** of bad
+   inputs in each service, not after every individual request as `criteria.md`
+   literally asks. Each row's own status was still checked directly against its
+   required value, so an in-row crash would have shown up as that row failing
+   regardless — but a transient failure that recovered before the final check
+   would not have been caught.
+2. For row 9, `detector_loaded: false` was observed live in `GET /health`
+   during collection, but that value is not persisted in the evidence file —
+   the file only records that `/health` returned 200. The 503 status itself
+   **is** in the file.
+
+Neither limitation changes the verdict; both are recorded here so the evidence
+isn't claimed to be more complete than it is.
+
+**Real output**, pasted as text, naming the file and function that produced it
+(`check_criteria.py::check_appeals`, from `results/appeals_2026-11-09_2234_m4.json`):
 
 ```json
-
+{
+  "label": "valid appeal 1",
+  "kind": "valid",
+  "ok": true
+}
 ```
+
+No equivalent trial output exists for criteria 1–3 — there is no trial to paste.
 
 **Diagnoses**
 
-<!-- For each miss AND each broken attack: the stage and the mechanism.
+*Criteria 1–3, confirmed from the code, not from running anything:*
 
-     Your service has five stages: the route, signal one, signal two, the
-     combining rule, and the label mapping.
+| Stage | State |
+|---|---|
+| Route (`app.py::submit`) | Imports `detector` only — never `stylometry` or `scoring` |
+| Signal one (`detector.model_signal`) | Real; every decision entry has a non-null `model_score` |
+| Signal two (`stylometry.style_signal`) | `return 0.5` — a constant, for every input |
+| Combining rule (`scoring.combine_signals`) | Implemented but never called by `/submit` |
+| Label mapping (`scoring.score_to_label`) | Implemented but never called by `/submit`; `guess` is hardcoded to the literal string `"placeholder"` |
 
-     Not a diagnosis:  "The evasion attacks got through."
-     A diagnosis:      "Four evasion inputs got through. All four had typos
-                        added to AI-generated text. My second signal measures
-                        word variety, and typos raise word variety — so it read
-                        them as more human. My combining rule weights that
-                        signal at 0.6, so it dragged the whole score down."
+One stage is unfinished (signal two), and that single gap is why the next two
+stages are unreachable: `/submit` has nothing to pass them, so it never calls
+them, so `style_score`, `combined_score` and `label` are `null` in every one of
+the 47 decision entries in the audit log. This is a pipeline that stops partway
+through, not three independent failures — fixing signal two is the one change
+that reopens criteria 1–3. No claim is made here about what any label or score
+*would* be once that stage exists.
 
-     Look for a pattern. Five failures on one signal is one problem, not five. -->
+*Historical baseline (`results/attack_run_2026-11-08_1753_before.md`, against
+commit `de5eeb5`), distinct from the current-code evidence above:* 0 of 56
+attacks were auto-marked BROKE. Three confirmed misses, all at the **route**
+stage, all the same mechanism — an attacker-controlled field reaching the log
+with no check on it: `MF08` (60,000-character text accepted; no length check
+existed), `RQ02` (missing `creator_id` accepted and logged as `null`), `RQ06`
+(an object as `creator_id` accepted and logged as an object). Current-code
+evidence under criterion 5 (row 5, over 5,000 characters → 413; row 8, missing
+or non-string `creator_id` → 400) shows the same three cases now rejected — but
+no fresh attack-set run exists against current code, so this is drawn from the
+criterion-5 evidence above, not from a re-run of the attack set itself.
 
 
 

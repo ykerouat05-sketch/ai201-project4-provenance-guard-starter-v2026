@@ -1,0 +1,65 @@
+{
+  "checks": [
+    {
+      "label": "valid appeal 1",
+      "kind": "valid",
+      "ok": true,
+      "detail": "HTTP 200, entries 1->2"
+    },
+    {
+      "label": "valid appeal 2",
+      "kind": "valid",
+      "ok": true,
+      "detail": "HTTP 200, entries 1->2"
+    },
+    {
+      "label": "valid appeal 3",
+      "kind": "valid",
+      "ok": true,
+      "detail": "HTTP 200, entries 1->2"
+    },
+    {
+      "label": "repeat appeal on the same content_id",
+      "kind": "repeat",
+      "ok": true,
+      "detail": "HTTP 200, entries 2->3"
+    },
+    {
+      "label": "rejected appeal: unknown content_id",
+      "kind": "rejected",
+      "ok": true,
+      "detail": "HTTP 404 (wanted 404), +1 rejected, +0 appeal"
+    },
+    {
+      "label": "rejected appeal: missing content_id",
+      "kind": "rejected",
+      "ok": true,
+      "detail": "HTTP 400 (wanted 400), +1 rejected, +0 appeal"
+    },
+    {
+      "label": "rejected appeal: empty reasoning",
+      "kind": "rejected",
+      "ok": true,
+      "detail": "HTTP 400 (wanted 400), +1 rejected, +0 appeal"
+    },
+    {
+      "label": "rejected appeal: whitespace-only reasoning",
+      "kind": "rejected",
+      "ok": true,
+      "detail": "HTTP 400 (wanted 400), +1 rejected, +0 appeal"
+    },
+    {
+      "label": "rejected appeal: non-string reasoning",
+      "kind": "rejected",
+      "ok": true,
+      "detail": "HTTP 400 (wanted 400), +1 rejected, +0 appeal"
+    },
+    {
+      "label": "rejected appeal: body is not a JSON object",
+      "kind": "rejected",
+      "ok": true,
+      "detail": "HTTP 400 (wanted 400), +1 rejected, +0 appeal"
+    }
+  ],
+  "when": "2026-11-09T22:34:59"
+}
